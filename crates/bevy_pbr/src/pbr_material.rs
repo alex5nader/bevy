@@ -23,6 +23,20 @@ pub enum UvChannel {
     Uv1,
 }
 
+/// An enum to define which texture sample funtion to use for a material.
+#[derive(Reflect, Default, Debug, Clone)]
+pub enum TextureSampler {
+    /// The built-in WGSL sample function.
+    #[default]
+    BuiltIn,
+    /// A sample function with modified anti-aliasing for better rendering of pixel art textures.
+    ///
+    /// This sampling method uses adjusted UVs, which improves anti-aliasing when the texels do
+    /// not perfectly align with camera pixels. This may occur when using 2d pixel art billboards
+    /// in a 3d environment, or when rotating or using non-integer scaling in a 2d environment.
+    PixelArt,
+}
+
 /// A material with "standard" properties used in PBR lighting
 /// Standard property values with pictures here
 /// <https://google.github.io/filament/Material%20Properties.pdf>.
@@ -690,6 +704,10 @@ pub struct StandardMaterial {
 
     /// The transform applied to the UVs corresponding to `ATTRIBUTE_UV_0` on the mesh before sampling. Default is identity.
     pub uv_transform: Affine2,
+
+    ///
+    /// Default is `false`.
+    pub texture_sampler: TextureSampler,
 }
 
 impl StandardMaterial {
@@ -836,6 +854,7 @@ impl Default for StandardMaterial {
             opaque_render_method: OpaqueRendererMethod::Auto,
             deferred_lighting_pass_id: DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID,
             uv_transform: Affine2::IDENTITY,
+            texture_sampler: TextureSampler::default(),
         }
     }
 }
@@ -1125,6 +1144,7 @@ bitflags! {
         const CLEARCOAT_UV             = 0x040000;
         const CLEARCOAT_ROUGHNESS_UV   = 0x080000;
         const CLEARCOAT_NORMAL_UV      = 0x100000;
+        const PIXEL_ART_ANTI_ALIASING  = 0x200000;
         const DEPTH_BIAS               = 0xffffffff_00000000;
     }
 }
@@ -1235,6 +1255,14 @@ impl From<&StandardMaterial> for StandardMaterialKey {
                 StandardMaterialKey::CLEARCOAT_NORMAL_UV,
                 material.clearcoat_normal_channel != UvChannel::Uv0,
             );
+        }
+
+        match material.texture_sampler {
+            TextureSampler::BuiltIn => (),
+            TextureSampler::PixelArt => key.set(
+                StandardMaterialKey::PIXEL_ART_ANTI_ALIASING,
+                true,
+            ),
         }
 
         key.insert(StandardMaterialKey::from_bits_retain(
@@ -1392,6 +1420,10 @@ impl Material for StandardMaterial {
                     StandardMaterialKey::ANISOTROPY_UV,
                     "STANDARD_MATERIAL_ANISOTROPY_UV",
                 ),
+                (
+                    StandardMaterialKey::PIXEL_ART_ANTI_ALIASING,
+                    "PIXEL_ART_ANTI_ALIASING",
+                )
             ] {
                 if key.bind_group_data.intersects(flags) {
                     shader_defs.push(shader_def.into());

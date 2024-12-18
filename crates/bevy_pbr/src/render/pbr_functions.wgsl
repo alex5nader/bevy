@@ -880,3 +880,27 @@ fn main_pass_post_lighting_processing(
 #endif
     return output_color;
 }
+
+fn texture_sample(texture: texture_2d<f32>, texture_sampler: sampler, uv: vec2<f32>, bias: f32) -> vec4<f32> {
+#ifdef PIXEL_ART_ANTI_ALIASING
+    // Using technique explained in this video: https://www.youtube.com/watch?v=d6tp43wZqps
+    let texture_dimensions = vec2<f32>(textureDimensions(texture).xy);
+    let box_size = clamp(fwidth(uv) * texture_dimensions, vec2(1e-5), vec2(1.0));
+    let tx = uv * texture_dimensions - 0.5 * box_size;
+    let tx_offset = smoothstep(vec2(1.0) - box_size, vec2(1.0), fract(tx));
+    let adjusted_uv = (floor(tx) + 0.5 + tx_offset) / texture_dimensions;
+
+    // Mip levels are calculated as L = log_2(p), where p = max(dpdx(uv), dpdy(uv))
+    // Bias is added to L, so to account for it in the gradient:
+    // L' = L + bias
+    //    = log_2(max(dpdx(uv), dpdy(uv))) + log_2(2^bias)
+    //    = log_2(max(dpdx(uv), dpdy(uv)) * 2^bias)
+    //    = log_2(max(2^bias * dpdx(uv), 2^bias * dpdy(uv)))
+    // So, scaling the gradients by 2^bias has the same effect as adding the bias to the mip level.
+    let grad_bias = pow(2.0, bias);
+
+    return textureSampleGrad(texture, texture_sampler, adjusted_uv, grad_bias * dpdx(uv), grad_bias * dpdy(uv));
+#else
+    return textureSampleBias(texture, texture_sampler, uv, bias);
+#endif
+}
