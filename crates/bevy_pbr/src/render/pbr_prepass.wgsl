@@ -4,7 +4,7 @@
     pbr_bindings::material,
     pbr_types,
     pbr_functions,
-    pbr_functions::SampleBias,
+    pbr_functions::{SampleBias, texture_sample},
     prepass_io,
     mesh_bindings::mesh,
     mesh_view_bindings::view,
@@ -90,7 +90,7 @@ fn fragment(
 #ifdef MESHLET_MESH_MATERIAL_PASS
             textureSampleGrad(
 #else   // MESHLET_MESH_MATERIAL_PASS
-            textureSampleBias(
+            texture_sample(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
                 pbr_bindings::normal_map_texture[slot],

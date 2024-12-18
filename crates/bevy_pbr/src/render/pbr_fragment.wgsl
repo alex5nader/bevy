@@ -2,7 +2,7 @@
 
 #import bevy_pbr::{
     pbr_functions,
-    pbr_functions::SampleBias,
+    pbr_functions::{SampleBias, texture_sample},
     pbr_bindings,
     pbr_types,
     prepass_utils,
@@ -180,7 +180,7 @@ fn pbr_input_from_standard_material(
 #ifdef MESHLET_MESH_MATERIAL_PASS
             textureSampleGrad(
 #else   // MESHLET_MESH_MATERIAL_PASS
-            textureSampleBias(
+            texture_sample(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
                 pbr_bindings::base_color_texture[slot],
@@ -254,7 +254,7 @@ fn pbr_input_from_standard_material(
 #ifdef MESHLET_MESH_MATERIAL_PASS
                 textureSampleGrad(
 #else   // MESHLET_MESH_MATERIAL_PASS
-                textureSampleBias(
+                texture_sample(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
                     pbr_bindings::emissive_texture[slot],
@@ -296,7 +296,7 @@ fn pbr_input_from_standard_material(
 #ifdef MESHLET_MESH_MATERIAL_PASS
                 textureSampleGrad(
 #else   // MESHLET_MESH_MATERIAL_PASS
-                textureSampleBias(
+                texture_sample(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
                     pbr_bindings::metallic_roughness_texture[slot],
@@ -339,7 +339,7 @@ fn pbr_input_from_standard_material(
 #ifdef MESHLET_MESH_MATERIAL_PASS
                 textureSampleGrad(
 #else   // MESHLET_MESH_MATERIAL_PASS
-                textureSampleBias(
+                texture_sample(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
                     pbr_bindings::clearcoat_texture[slot],
@@ -380,7 +380,7 @@ fn pbr_input_from_standard_material(
 #ifdef MESHLET_MESH_MATERIAL_PASS
                 textureSampleGrad(
 #else   // MESHLET_MESH_MATERIAL_PASS
-                textureSampleBias(
+                texture_sample(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
                     pbr_bindings::clearcoat_roughness_texture[slot],
@@ -418,7 +418,7 @@ fn pbr_input_from_standard_material(
 #ifdef MESHLET_MESH_MATERIAL_PASS
                 textureSampleGrad(
 #else   // MESHLET_MESH_MATERIAL_PASS
-                textureSampleBias(
+                texture_sample(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
                     pbr_bindings::specular_transmission_texture[slot],
@@ -457,7 +457,7 @@ fn pbr_input_from_standard_material(
 #ifdef MESHLET_MESH_MATERIAL_PASS
                 textureSampleGrad(
 #else   // MESHLET_MESH_MATERIAL_PASS
-                textureSampleBias(
+                texture_sample(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
                     pbr_bindings::thickness_texture[slot],
@@ -503,7 +503,7 @@ fn pbr_input_from_standard_material(
 #ifdef MESHLET_MESH_MATERIAL_PASS
                 textureSampleGrad(
 #else   // MESHLET_MESH_MATERIAL_PASS
-                textureSampleBias(
+                texture_sample(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
                     pbr_bindings::diffuse_transmission_texture[slot],
@@ -537,7 +537,7 @@ fn pbr_input_from_standard_material(
 #ifdef MESHLET_MESH_MATERIAL_PASS
                 textureSampleGrad(
 #else   // MESHLET_MESH_MATERIAL_PASS
-                textureSampleBias(
+                texture_sample(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
                     pbr_bindings::occlusion_texture[slot],
@@ -588,7 +588,7 @@ fn pbr_input_from_standard_material(
 #ifdef MESHLET_MESH_MATERIAL_PASS
             textureSampleGrad(
 #else   // MESHLET_MESH_MATERIAL_PASS
-            textureSampleBias(
+            texture_sample(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
                 pbr_bindings::normal_map_texture[slot],
@@ -626,7 +626,7 @@ fn pbr_input_from_standard_material(
 #ifdef MESHLET_MESH_MATERIAL_PASS
             textureSampleGrad(
 #else   // MESHLET_MESH_MATERIAL_PASS
-            textureSampleBias(
+            texture_sample(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
                 pbr_bindings::clearcoat_normal_texture[slot],
@@ -685,7 +685,7 @@ fn pbr_input_from_standard_material(
 #ifdef MESHLET_MESH_MATERIAL_PASS
                 textureSampleGrad(
 #else   // MESHLET_MESH_MATERIAL_PASS
-                textureSampleBias(
+                texture_sample(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
                     pbr_bindings::anisotropy_texture[slot],

@@ -6,6 +6,7 @@
     mesh_bindings::mesh,
     mesh_view_bindings::view,
     pbr_bindings,
+    pbr_functions::texture_sample,
     pbr_types,
 }
 
@@ -40,7 +41,7 @@ fn prepass_alpha_discard(in: VertexOutput) {
 
     uv = (uv_transform * vec3(uv, 1.0)).xy;
     if (flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
-        output_color = output_color * textureSampleBias(
+        output_color = output_color * texture_sample(
 #ifdef BINDLESS
             pbr_bindings::base_color_texture[slot],
             pbr_bindings::base_color_sampler[slot],
