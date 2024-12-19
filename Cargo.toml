@@ -3873,6 +3873,17 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "pixel_art_anti_aliasing"
+path = "examples/3d/pixel_art_anti_aliasing.rs"
+doc-scrape-examples = true
+
+[package.metadata.examples.pixel_art_anti_aliasing]
+name = "Pixel art anti aliasing"
+description = "Demonstrates the effect of pixel art anti aliasing with a rotating sprite"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "mixed_lighting"
 path = "examples/3d/mixed_lighting.rs"
 doc-scrape-examples = true
