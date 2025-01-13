@@ -10,6 +10,7 @@ use crate::{
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
+use bevy_core_pipeline::prepass::VisbufferPrepass;
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     deferred::{
@@ -316,6 +317,10 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("MOTION_VECTOR_PREPASS".into());
         }
 
+        if key.contains(MeshPipelineKey::VISBUFFER_PREPASS) {
+            shader_defs.push("VISBUFFER_PREPASS".into());
+        }
+
         if key.contains(MeshPipelineKey::SCREEN_SPACE_REFLECTIONS) {
             shader_defs.push("SCREEN_SPACE_REFLECTIONS".into());
         }
@@ -442,6 +447,7 @@ pub fn prepare_deferred_lighting_pipelines(
                 Has<NormalPrepass>,
                 Has<DepthPrepass>,
                 Has<MotionVectorPrepass>,
+                Has<VisbufferPrepass>,
             ),
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
             Has<RenderViewLightProbes<IrradianceVolume>>,
@@ -456,7 +462,7 @@ pub fn prepare_deferred_lighting_pipelines(
         dither,
         shadow_filter_method,
         (ssao, ssr),
-        (normal_prepass, depth_prepass, motion_vector_prepass),
+        (normal_prepass, depth_prepass, motion_vector_prepass, visbuffer_prepass),
         has_environment_maps,
         has_irradiance_volumes,
     ) in &views
@@ -473,6 +479,10 @@ pub fn prepare_deferred_lighting_pipelines(
 
         if motion_vector_prepass {
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
+        }
+
+        if visbuffer_prepass {
+            view_key |= MeshPipelineKey::VISBUFFER_PREPASS;
         }
 
         // Always true, since we're in the deferred lighting pipeline

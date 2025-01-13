@@ -6,7 +6,9 @@ use bevy_asset::{AssetId, Handle};
 use bevy_color::ColorToComponents as _;
 use bevy_core_pipeline::{
     core_3d::Camera3d,
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    prepass::{
+        DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass, VisbufferPrepass,
+    },
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -621,6 +623,7 @@ pub fn prepare_volumetric_fog_pipelines(
             Has<DepthPrepass>,
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
+            Has<VisbufferPrepass>,
         ),
         With<VolumetricFog>,
     >,
@@ -636,6 +639,7 @@ pub fn prepare_volumetric_fog_pipelines(
         depth_prepass,
         motion_vector_prepass,
         deferred_prepass,
+        visbuffer_prepass,
     ) in view_targets.iter()
     {
         // Create a mesh pipeline view layout key corresponding to the view.
@@ -649,6 +653,10 @@ pub fn prepare_volumetric_fog_pipelines(
         mesh_pipeline_view_key.set(
             MeshPipelineViewLayoutKey::DEFERRED_PREPASS,
             deferred_prepass,
+        );
+        mesh_pipeline_view_key.set(
+            MeshPipelineViewLayoutKey::VISBUFFER_PREPASS,
+            visbuffer_prepass,
         );
 
         let mut textureless_flags = VolumetricFogPipelineKeyFlags::empty();

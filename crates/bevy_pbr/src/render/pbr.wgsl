@@ -34,6 +34,9 @@ fn fragment(
     in: VertexOutput,
     @builtin(front_facing) is_front: bool,
 #endif
+#ifdef VISBUFFER_PREPASS
+    @builtin(primitive_index) triangle_index: u32,
+#endif
 ) -> FragmentOutput {
 #ifdef MESHLET_MESH_MATERIAL_PASS
     let in = resolve_vertex_output(frag_coord);
@@ -54,7 +57,13 @@ fn fragment(
 
 #ifdef PREPASS_PIPELINE
     // write the gbuffer, lighting pass id, and optionally normal and motion_vector textures
-    let out = deferred_output(in, pbr_input);
+    let out = deferred_output(
+        in,
+#ifdef VISBUFFER_PREPASS
+        triangle_index,
+#endif
+        pbr_input,
+    );
 #else
     // in forward mode, we calculate the lit color immediately, and then apply some post-lighting effects here.
     // in deferred mode the lit color and these effects will be calculated in the deferred lighting shader

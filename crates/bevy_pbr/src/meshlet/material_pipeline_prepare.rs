@@ -54,6 +54,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
                 Has<DepthPrepass>,
                 Has<MotionVectorPrepass>,
                 Has<DeferredPrepass>,
+                Has<VisbufferPrepass>,
             ),
             Has<TemporalJitter>,
             Option<&Projection>,
@@ -74,7 +75,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
         dither,
         shadow_filter_method,
         ssao,
-        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
+        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass, visbuffer_prepass),
         temporal_jitter,
         projection,
         has_environment_maps,
@@ -95,6 +96,9 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
         }
         if deferred_prepass {
             view_key |= MeshPipelineKey::DEFERRED_PREPASS;
+        }
+        if visbuffer_prepass {
+            view_key |= MeshPipelineKey::VISBUFFER_PREPASS;
         }
 
         if temporal_jitter {

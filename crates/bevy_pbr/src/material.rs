@@ -15,7 +15,7 @@ use bevy_core_pipeline::{
     oit::OrderIndependentTransparencySettings,
     prepass::{
         DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
-        OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey,
+        OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey, VisbufferPrepass,
     },
     tonemapping::{DebandDither, Tonemapping},
 };
@@ -650,6 +650,7 @@ pub fn queue_material_meshes<M: Material>(
             Has<DepthPrepass>,
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
+            Has<VisbufferPrepass>,
         ),
         Option<&Camera3d>,
         Has<TemporalJitter>,
@@ -671,7 +672,7 @@ pub fn queue_material_meshes<M: Material>(
         dither,
         shadow_filter_method,
         ssao,
-        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
+        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass, visbuffer_prepass),
         camera_3d,
         temporal_jitter,
         projection,
@@ -716,6 +717,10 @@ pub fn queue_material_meshes<M: Material>(
 
         if deferred_prepass {
             view_key |= MeshPipelineKey::DEFERRED_PREPASS;
+        }
+
+        if visbuffer_prepass {
+            view_key |= MeshPipelineKey::VISBUFFER_PREPASS;
         }
 
         if temporal_jitter {

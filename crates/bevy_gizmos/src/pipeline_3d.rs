@@ -7,7 +7,9 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_core_pipeline::{
     core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT},
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    prepass::{
+        DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass, VisbufferPrepass,
+    },
 };
 
 use bevy_ecs::{
@@ -300,6 +302,7 @@ fn queue_line_gizmos_3d(
             Has<DepthPrepass>,
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
+            Has<VisbufferPrepass>,
         ),
     )>,
 ) {
@@ -313,7 +316,7 @@ fn queue_line_gizmos_3d(
         view,
         msaa,
         render_layers,
-        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
+        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass, visbuffer_prepass),
     ) in &views
     {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
@@ -340,6 +343,10 @@ fn queue_line_gizmos_3d(
 
         if deferred_prepass {
             view_key |= MeshPipelineKey::DEFERRED_PREPASS;
+        }
+
+        if visbuffer_prepass {
+            view_key |= MeshPipelineKey::VISBUFFER_PREPASS;
         }
 
         for (entity, main_entity, config) in &line_gizmos {
@@ -413,6 +420,7 @@ fn queue_line_joint_gizmos_3d(
             Has<DepthPrepass>,
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
+            Has<VisbufferPrepass>,
         ),
     )>,
 ) {
@@ -425,7 +433,7 @@ fn queue_line_joint_gizmos_3d(
         view,
         msaa,
         render_layers,
-        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
+        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass, visbuffer_prepass),
     ) in &views
     {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
@@ -452,6 +460,10 @@ fn queue_line_joint_gizmos_3d(
 
         if deferred_prepass {
             view_key |= MeshPipelineKey::DEFERRED_PREPASS;
+        }
+
+        if visbuffer_prepass {
+            view_key |= MeshPipelineKey::VISBUFFER_PREPASS;
         }
 
         for (entity, main_entity, config) in &line_gizmos {

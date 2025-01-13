@@ -115,7 +115,8 @@ use crate::{
     prepass::{
         node::PrepassNode, AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass,
         NormalPrepass, Opaque3dPrepass, OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey,
-        ViewPrepassTextures, MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
+        ViewPrepassTextures, VisbufferPrepass, MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
+        VISBUFFER_PREPASS_FORMAT,
     },
     skybox::SkyboxPlugin,
     tonemapping::TonemappingNode,
@@ -629,6 +630,7 @@ pub fn extract_camera_prepass_phase(
                 Has<NormalPrepass>,
                 Has<MotionVectorPrepass>,
                 Has<DeferredPrepass>,
+                Has<VisbufferPrepass>,
             ),
             With<Camera3d>,
         >,
@@ -647,6 +649,7 @@ pub fn extract_camera_prepass_phase(
         normal_prepass,
         motion_vector_prepass,
         deferred_prepass,
+        visbuffer_prepass,
     ) in cameras_3d.iter()
     {
         if !camera.is_active {
@@ -664,7 +667,7 @@ pub fn extract_camera_prepass_phase(
         // This is the main 3D camera, so we use the first subview index (0).
         let retained_view_entity = RetainedViewEntity::new(main_entity.into(), 0);
 
-        if depth_prepass || normal_prepass || motion_vector_prepass {
+        if depth_prepass || normal_prepass || motion_vector_prepass || visbuffer_prepass {
             opaque_3d_prepass_phases.insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
             alpha_mask_3d_prepass_phases
                 .insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
@@ -689,7 +692,8 @@ pub fn extract_camera_prepass_phase(
             .insert_if(DepthPrepass, || depth_prepass)
             .insert_if(NormalPrepass, || normal_prepass)
             .insert_if(MotionVectorPrepass, || motion_vector_prepass)
-            .insert_if(DeferredPrepass, || deferred_prepass);
+            .insert_if(DeferredPrepass, || deferred_prepass)
+            .insert_if(VisbufferPrepass, || visbuffer_prepass);
     }
 
     opaque_3d_prepass_phases.retain(|view_entity, _| live_entities.contains(view_entity));
@@ -906,12 +910,14 @@ pub fn prepare_prepass_textures(
         Has<NormalPrepass>,
         Has<MotionVectorPrepass>,
         Has<DeferredPrepass>,
+        Has<VisbufferPrepass>,
     )>,
 ) {
     let mut depth_textures = <HashMap<_, _>>::default();
     let mut normal_textures = <HashMap<_, _>>::default();
     let mut deferred_textures = <HashMap<_, _>>::default();
     let mut deferred_lighting_id_textures = <HashMap<_, _>>::default();
+    let mut visbuffer_textures = <HashMap<_, _>>::default();
     let mut motion_vectors_textures = <HashMap<_, _>>::default();
     for (
         entity,
@@ -922,6 +928,7 @@ pub fn prepare_prepass_textures(
         normal_prepass,
         motion_vector_prepass,
         deferred_prepass,
+        visbuffer_prepass,
     ) in &views_3d
     {
         if !opaque_3d_prepass_phases.contains_key(&view.retained_view_entity)
@@ -1051,6 +1058,28 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
+        let cached_visbuffer_texture = visbuffer_prepass.then(|| {
+            visbuffer_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            label: Some("prepass_visbuffer_texture"),
+                            size,
+                            mip_level_count: 1,
+                            sample_count: 1,
+                            dimension: TextureDimension::D2,
+                            format: VISBUFFER_PREPASS_FORMAT,
+                            usage: TextureUsages::RENDER_ATTACHMENT
+                                | TextureUsages::TEXTURE_BINDING,
+                            view_formats: &[],
+                        },
+                    )
+                })
+                .clone()
+        });
+
         commands.entity(entity).insert(ViewPrepassTextures {
             depth: cached_depth_texture
                 .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
@@ -1064,6 +1093,8 @@ pub fn prepare_prepass_textures(
             deferred: cached_deferred_texture
                 .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
             deferred_lighting_pass_id: cached_deferred_lighting_pass_id_texture
+                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
+            visbuffer: cached_visbuffer_texture
                 .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
             size,
         });

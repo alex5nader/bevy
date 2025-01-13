@@ -73,6 +73,7 @@ bitflags::bitflags! {
         const MOTION_VECTOR_PREPASS       = 1 << 3;
         const DEFERRED_PREPASS            = 1 << 4;
         const OIT_ENABLED                 = 1 << 5;
+        const VISBUFFER_PREPASS           = 1 << 6;
     }
 }
 
@@ -85,7 +86,7 @@ impl MeshPipelineViewLayoutKey {
         use MeshPipelineViewLayoutKey as Key;
 
         format!(
-            "mesh_view_layout{}{}{}{}{}{}",
+            "mesh_view_layout{}{}{}{}{}{}{}",
             self.contains(Key::MULTISAMPLED)
                 .then_some("_multisampled")
                 .unwrap_or_default(),
@@ -103,6 +104,9 @@ impl MeshPipelineViewLayoutKey {
                 .unwrap_or_default(),
             self.contains(Key::OIT_ENABLED)
                 .then_some("_oit")
+                .unwrap_or_default(),
+            self.contains(Key::VISBUFFER_PREPASS)
+                .then_some("_visbuffer")
                 .unwrap_or_default(),
         )
     }
@@ -129,6 +133,9 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
         }
         if value.contains(MeshPipelineKey::OIT_ENABLED) {
             result |= MeshPipelineViewLayoutKey::OIT_ENABLED;
+        }
+        if value.contains(MeshPipelineKey::VISBUFFER_PREPASS) {
+            result |= MeshPipelineViewLayoutKey::VISBUFFER_PREPASS;
         }
 
         result
@@ -163,6 +170,9 @@ impl From<Option<&ViewPrepassTextures>> for MeshPipelineViewLayoutKey {
             }
             if prepass_textures.deferred.is_some() {
                 result |= MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
+            }
+            if prepass_textures.visbuffer.is_some() {
+                result |= MeshPipelineViewLayoutKey::VISBUFFER_PREPASS;
             }
         }
 
@@ -343,7 +353,7 @@ fn layout_entries(
     {
         for (entry, binding) in prepass::get_bind_group_layout_entries(layout_key)
             .iter()
-            .zip([25, 26, 27, 28])
+            .zip([25, 26, 27, 28, 34])
         {
             if let Some(entry) = entry {
                 entries = entries.extend_with_indices(((binding as u32, *entry),));
@@ -677,7 +687,7 @@ pub fn prepare_mesh_view_bind_groups(
                 for (binding, index) in prepass_bindings
                     .iter()
                     .map(Option::as_ref)
-                    .zip([25, 26, 27, 28])
+                    .zip([25, 26, 27, 28, 34])
                     .flat_map(|(b, i)| b.map(|b| (b, i)))
                 {
                     entries = entries.extend_with_indices(((index, binding),));

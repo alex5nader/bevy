@@ -531,10 +531,15 @@ where
             shader_defs.push("VISIBILITY_RANGE_DITHER".into());
         }
 
+        if key.mesh_key.contains(MeshPipelineKey::VISBUFFER_PREPASS) {
+            shader_defs.push("VISBUFFER_PREPASS".into());
+        }
+
         if key.mesh_key.intersects(
             MeshPipelineKey::NORMAL_PREPASS
                 | MeshPipelineKey::MOTION_VECTOR_PREPASS
-                | MeshPipelineKey::DEFERRED_PREPASS,
+                | MeshPipelineKey::DEFERRED_PREPASS
+                | MeshPipelineKey::VISBUFFER_PREPASS,
         ) {
             shader_defs.push("PREPASS_FRAGMENT".into());
         }
@@ -558,6 +563,7 @@ where
             key.mesh_key
                 .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS),
             key.mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS),
+            key.mesh_key.contains(MeshPipelineKey::VISBUFFER_PREPASS),
         );
 
         if targets.iter().all(Option::is_none) {
@@ -797,10 +803,11 @@ pub fn queue_prepass_material_meshes<M: Material>(
         &ExtractedView,
         &RenderVisibleEntities,
         &Msaa,
-        Option<&DepthPrepass>,
-        Option<&NormalPrepass>,
-        Option<&MotionVectorPrepass>,
-        Option<&DeferredPrepass>,
+        Has<DepthPrepass>,
+        Has<NormalPrepass>,
+        Has<MotionVectorPrepass>,
+        Has<DeferredPrepass>,
+        Has<VisbufferPrepass>,
     )>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -829,6 +836,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
         normal_prepass,
         motion_vector_prepass,
         deferred_prepass,
+        visbuffer_prepass,
     ) in &views
     {
         let (
@@ -853,14 +861,17 @@ pub fn queue_prepass_material_meshes<M: Material>(
         }
 
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
-        if depth_prepass.is_some() {
+        if depth_prepass {
             view_key |= MeshPipelineKey::DEPTH_PREPASS;
         }
-        if normal_prepass.is_some() {
+        if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
         }
-        if motion_vector_prepass.is_some() {
+        if motion_vector_prepass {
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
+        }
+        if visbuffer_prepass {
+            view_key |= MeshPipelineKey::VISBUFFER_PREPASS;
         }
 
         for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
@@ -908,7 +919,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 OpaqueRendererMethod::Auto => unreachable!(),
             };
 
-            let deferred = deferred_prepass.is_some() && !forward;
+            let deferred = deferred_prepass && !forward;
 
             if deferred {
                 mesh_key |= MeshPipelineKey::DEFERRED_PREPASS;
@@ -932,7 +943,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
             }
 
             // If the previous frame has skins or morph targets, note that.
-            if motion_vector_prepass.is_some() {
+            if motion_vector_prepass {
                 if mesh_instance
                     .flags
                     .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_SKIN)

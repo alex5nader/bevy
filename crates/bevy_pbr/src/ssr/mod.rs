@@ -8,7 +8,9 @@ use bevy_core_pipeline::{
         DEPTH_TEXTURE_SAMPLING_SUPPORTED,
     },
     fullscreen_vertex_shader,
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    prepass::{
+        DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass, VisbufferPrepass,
+    },
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -420,6 +422,7 @@ pub fn prepare_ssr_pipelines(
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
             Has<NormalPrepass>,
             Has<MotionVectorPrepass>,
+            Has<VisbufferPrepass>,
         ),
         (
             With<ScreenSpaceReflectionsUniform>,
@@ -434,6 +437,7 @@ pub fn prepare_ssr_pipelines(
         has_environment_maps,
         has_normal_prepass,
         has_motion_vector_prepass,
+        has_visbuffer_prepass,
     ) in &views
     {
         // SSR is only supported in the deferred pipeline, which has no MSAA
@@ -448,6 +452,10 @@ pub fn prepare_ssr_pipelines(
         mesh_pipeline_view_key.set(
             MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS,
             has_motion_vector_prepass,
+        );
+        mesh_pipeline_view_key.set(
+            MeshPipelineViewLayoutKey::VISBUFFER_PREPASS,
+            has_visbuffer_prepass,
         );
 
         // Build the pipeline.

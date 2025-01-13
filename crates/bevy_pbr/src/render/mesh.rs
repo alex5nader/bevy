@@ -1817,7 +1817,8 @@ bitflags::bitflags! {
         const HAS_PREVIOUS_SKIN                 = 1 << 18;
         const HAS_PREVIOUS_MORPH                = 1 << 19;
         const OIT_ENABLED                       = 1 << 20;
-        const LAST_FLAG                         = Self::OIT_ENABLED.bits();
+        const VISBUFFER_PREPASS                 = 1 << 21;
+        const LAST_FLAG                         = Self::VISBUFFER_PREPASS.bits();
 
         // Bitfields
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
@@ -2155,6 +2156,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
             shader_defs.push("MOTION_VECTOR_PREPASS".into());
+        }
+
+        if key.contains(MeshPipelineKey::VISBUFFER_PREPASS) {
+            shader_defs.push("VISBUFFER_PREPASS".into());
         }
 
         if key.contains(MeshPipelineKey::HAS_PREVIOUS_SKIN) {

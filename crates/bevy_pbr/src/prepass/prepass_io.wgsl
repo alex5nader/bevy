@@ -91,6 +91,10 @@ struct FragmentOutput {
     @location(3) deferred_lighting_pass_id: u32,
 #endif
 
+#ifdef VISBUFFER_PREPASS
+    @location(4) visbuffer: u32,
+#endif
+
 #ifdef UNCLIPPED_DEPTH_ORTHO_EMULATION
     @builtin(frag_depth) frag_depth: f32,
 #endif // UNCLIPPED_DEPTH_ORTHO_EMULATION

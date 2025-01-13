@@ -3,7 +3,7 @@
 //! The textures are not generated for any material using alpha blending.
 
 use bevy::{
-    core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass, VisbufferPrepass},
     pbr::{NotShadowCaster, PbrPlugin},
     prelude::*,
     reflect::TypePath,
@@ -59,6 +59,7 @@ fn setup(
         NormalPrepass,
         // This will generate a texture containing screen space pixel motion vectors
         MotionVectorPrepass,
+        VisbufferPrepass,
     ));
 
     // plane
@@ -186,6 +187,7 @@ struct ShowPrepassSettings {
     show_depth: u32,
     show_normals: u32,
     show_motion_vectors: u32,
+    show_visbuffer: u32,
     padding_1: u32,
     padding_2: u32,
 }
@@ -218,13 +220,14 @@ fn toggle_prepass_view(
     mut writer: TextUiWriter,
 ) {
     if keycode.just_pressed(KeyCode::Space) {
-        *prepass_view = (*prepass_view + 1) % 4;
+        *prepass_view = (*prepass_view + 1) % 5;
 
         let label = match *prepass_view {
             0 => "transparent",
             1 => "depth",
             2 => "normals",
             3 => "motion vectors",
+            4 => "visbuffer",
             _ => unreachable!(),
         };
         let text = *text;
@@ -237,5 +240,6 @@ fn toggle_prepass_view(
         mat.settings.show_depth = (*prepass_view == 1) as u32;
         mat.settings.show_normals = (*prepass_view == 2) as u32;
         mat.settings.show_motion_vectors = (*prepass_view == 3) as u32;
+        mat.settings.show_visbuffer = (*prepass_view == 4) as u32;
     }
 }

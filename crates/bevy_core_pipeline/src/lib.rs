@@ -27,6 +27,7 @@ mod taa;
 pub mod tonemapping;
 pub mod upscaling;
 
+use prepass::VisbufferPrepass;
 pub use skybox::Skybox;
 
 /// Experimental features that are not yet finished. Please report any issues you encounter!
@@ -87,6 +88,7 @@ impl Plugin for CorePipelinePlugin {
             .register_type::<NormalPrepass>()
             .register_type::<MotionVectorPrepass>()
             .register_type::<DeferredPrepass>()
+            .register_type::<VisbufferPrepass>()
             .add_plugins((
                 Core2dPlugin,
                 Core3dPlugin,

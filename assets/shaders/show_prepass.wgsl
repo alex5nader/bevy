@@ -2,12 +2,14 @@
     mesh_view_bindings::globals,
     prepass_utils,
     forward_io::VertexOutput,
+    utils::rand_f,
 }
 
 struct ShowPrepassSettings {
     show_depth: u32,
     show_normals: u32,
     show_motion_vectors: u32,
+    show_visbuffer: u32,
     padding_1: u32,
     padding_2: u32,
 }
@@ -32,6 +34,12 @@ fn fragment(
     } else if settings.show_motion_vectors == 1u {
         let motion_vector = bevy_pbr::prepass_utils::prepass_motion_vector(mesh.position, sample_index);
         return vec4(motion_vector / globals.delta_time, 0.0, 1.0);
+    } else if settings.show_visbuffer == 1u {
+        var vis = bevy_pbr::prepass_utils::prepass_visbuffer(mesh.position, sample_index);
+        let r = rand_f(&vis);
+        let g = rand_f(&vis);
+        let b = rand_f(&vis);
+        return vec4(r, g, b, 1.0);
     }
 
     return vec4(0.0);

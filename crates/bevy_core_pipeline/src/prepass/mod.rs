@@ -50,6 +50,7 @@ use bevy_render::{
 
 pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
 pub const MOTION_VECTOR_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg16Float;
+pub const VISBUFFER_PREPASS_FORMAT: TextureFormat = TextureFormat::R32Uint;
 
 /// If added to a [`crate::prelude::Camera3d`] then depth values will be copied to a separate texture available to the main pass.
 #[derive(Component, Default, Reflect, Clone)]
@@ -72,6 +73,10 @@ pub struct MotionVectorPrepass;
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct DeferredPrepass;
+
+#[derive(Component, Default, Reflect)]
+#[reflect(Component, Default)]
+pub struct VisbufferPrepass;
 
 #[derive(Component, ShaderType, Clone)]
 pub struct PreviousViewData {
@@ -109,6 +114,7 @@ pub struct ViewPrepassTextures {
     /// A texture that specifies the deferred lighting pass id for a material.
     /// Exists only if [`DeferredPrepass`] is added to the `ViewTarget`
     pub deferred_lighting_pass_id: Option<ColorAttachment>,
+    pub visbuffer: Option<ColorAttachment>,
     /// The size of the textures.
     pub size: Extent3d,
 }
@@ -130,6 +136,10 @@ impl ViewPrepassTextures {
 
     pub fn deferred_view(&self) -> Option<&TextureView> {
         self.deferred.as_ref().map(|t| &t.texture.default_view)
+    }
+
+    pub fn visbuffer_view(&self) -> Option<&TextureView> {
+        self.visbuffer.as_ref().map(|t| &t.texture.default_view)
     }
 }
 
@@ -344,6 +354,7 @@ pub fn prepass_target_descriptors(
     normal_prepass: bool,
     motion_vector_prepass: bool,
     deferred_prepass: bool,
+    visbuffer_prepass: bool,
 ) -> Vec<Option<ColorTargetState>> {
     vec![
         normal_prepass.then_some(ColorTargetState {
@@ -365,6 +376,11 @@ pub fn prepass_target_descriptors(
             format: DEFERRED_LIGHTING_PASS_ID_FORMAT,
             blend: None,
             write_mask: ColorWrites::ALL,
+        }),
+        visbuffer_prepass.then_some(ColorTargetState {
+            format: VISBUFFER_PREPASS_FORMAT,
+            blend: None,
+            write_mask: ColorWrites::RED,
         }),
     ]
 }

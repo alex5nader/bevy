@@ -115,6 +115,13 @@ impl ViewNode for DeferredGBufferPrepassNode {
                 .map(|deferred_lighting_pass_id| deferred_lighting_pass_id.get_attachment()),
         );
 
+        color_attachments.push(
+            view_prepass_textures
+                .visbuffer
+                .as_ref()
+                .map(|visbuffer_texture| visbuffer_texture.get_attachment()),
+        );
+
         // If all color attachments are none: clear the color attachment list so that no fragment shader is required
         if color_attachments.iter().all(Option::is_none) {
             color_attachments.clear();
