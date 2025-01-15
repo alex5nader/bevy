@@ -964,12 +964,20 @@ impl DefaultOpaqueRendererMethod {
         DefaultOpaqueRendererMethod(OpaqueRendererMethod::Deferred)
     }
 
+    pub fn visbuffer() -> Self {
+        DefaultOpaqueRendererMethod(OpaqueRendererMethod::Visbuffer)
+    }
+
     pub fn set_to_forward(&mut self) {
         self.0 = OpaqueRendererMethod::Forward;
     }
 
     pub fn set_to_deferred(&mut self) {
         self.0 = OpaqueRendererMethod::Deferred;
+    }
+
+    pub fn set_to_visbuffer(&mut self) {
+        self.0 = OpaqueRendererMethod::Visbuffer;
     }
 }
 
@@ -996,6 +1004,7 @@ pub enum OpaqueRendererMethod {
     #[default]
     Forward,
     Deferred,
+    Visbuffer,
     Auto,
 }
 
@@ -1063,9 +1072,8 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
         };
 
         let method = match material.opaque_render_method() {
-            OpaqueRendererMethod::Forward => OpaqueRendererMethod::Forward,
-            OpaqueRendererMethod::Deferred => OpaqueRendererMethod::Deferred,
             OpaqueRendererMethod::Auto => default_opaque_render_method.0,
+            chosen => chosen,
         };
         let mut mesh_pipeline_key_bits = MeshPipelineKey::empty();
         mesh_pipeline_key_bits.set(

@@ -5,7 +5,9 @@ use std::f32::consts::*;
 use bevy::{
     core_pipeline::{
         fxaa::Fxaa,
-        prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+        prepass::{
+            DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass, VisbufferPrepass,
+        },
     },
     image::ImageLoaderSettings,
     math::ops,
@@ -278,6 +280,7 @@ enum DefaultRenderMode {
     Deferred,
     Forward,
     ForwardPrepass,
+    Visbuffer,
 }
 
 fn switch_mode(
@@ -307,6 +310,7 @@ fn switch_mode(
             commands.entity(camera).insert(DepthPrepass);
             commands.entity(camera).insert(MotionVectorPrepass);
             commands.entity(camera).insert(DeferredPrepass);
+            commands.entity(camera).remove::<VisbufferPrepass>();
         }
     }
     if keys.just_pressed(KeyCode::Digit2) {
@@ -319,6 +323,7 @@ fn switch_mode(
             commands.entity(camera).remove::<DepthPrepass>();
             commands.entity(camera).remove::<MotionVectorPrepass>();
             commands.entity(camera).remove::<DeferredPrepass>();
+            commands.entity(camera).remove::<VisbufferPrepass>();
         }
     }
     if keys.just_pressed(KeyCode::Digit3) {
@@ -331,6 +336,21 @@ fn switch_mode(
             commands.entity(camera).insert(DepthPrepass);
             commands.entity(camera).insert(MotionVectorPrepass);
             commands.entity(camera).remove::<DeferredPrepass>();
+            commands.entity(camera).remove::<VisbufferPrepass>();
+        }
+    }
+
+    if keys.just_pressed(KeyCode::Digit4) {
+        *mode = DefaultRenderMode::Visbuffer;
+        default_opaque_renderer_method.set_to_visbuffer();
+        println!("DefaultOpaqueRendererMethod: Visbuffer");
+        for _ in materials.iter_mut() {}
+        for camera in &cameras {
+            commands.entity(camera).remove::<NormalPrepass>();
+            commands.entity(camera).remove::<DepthPrepass>();
+            commands.entity(camera).remove::<MotionVectorPrepass>();
+            commands.entity(camera).remove::<DeferredPrepass>();
+            commands.entity(camera).insert(VisbufferPrepass);
         }
     }
 
@@ -367,5 +387,13 @@ fn switch_mode(
                 ""
             }
         ));
+        text.push_str(&format!(
+            "(4) {} Visbuffer\n",
+            if let DefaultRenderMode::Visbuffer = *mode {
+                ">"
+            } else {
+                ""
+            }
+        ))
     }
 }

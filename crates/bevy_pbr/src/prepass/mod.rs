@@ -916,6 +916,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
             let forward = match material.properties.render_method {
                 OpaqueRendererMethod::Forward => true,
                 OpaqueRendererMethod::Deferred => false,
+                OpaqueRendererMethod::Visbuffer => unimplemented!("visbuffer"),
                 OpaqueRendererMethod::Auto => unreachable!(),
             };
 
