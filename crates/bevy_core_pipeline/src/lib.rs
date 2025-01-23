@@ -26,6 +26,7 @@ pub mod smaa;
 mod taa;
 pub mod tonemapping;
 pub mod upscaling;
+pub mod visbuffer;
 
 use prepass::VisbufferPrepass;
 pub use skybox::Skybox;

@@ -103,7 +103,7 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
                 shader: SKYBOX_PREPASS_SHADER_HANDLE,
                 shader_defs: vec![],
                 entry_point: "fragment".into(),
-                targets: prepass_target_descriptors(key.normal_prepass, true, false, false), // is this "false" correct?
+                targets: prepass_target_descriptors(key.normal_prepass, true, false),
             }),
             zero_initialize_workgroup_memory: false,
         }

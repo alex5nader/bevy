@@ -8,6 +8,7 @@ use bevy_core_pipeline::{
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
     oit::{prepare_oit_buffers, OrderIndependentTransparencySettingsOffset},
     prepass::MotionVectorPrepass,
+    visbuffer::{AlphaMask3dVisbuffer, Opaque3dVisbuffer},
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -147,6 +148,8 @@ impl Plugin for MeshRenderPlugin {
             BinnedRenderPhasePlugin::<Shadow, MeshPipeline>::default(),
             BinnedRenderPhasePlugin::<Opaque3dDeferred, MeshPipeline>::default(),
             BinnedRenderPhasePlugin::<AlphaMask3dDeferred, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<Opaque3dVisbuffer, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<AlphaMask3dVisbuffer, MeshPipeline>::default(),
             SortedRenderPhasePlugin::<Transmissive3d, MeshPipeline>::default(),
             SortedRenderPhasePlugin::<Transparent3d, MeshPipeline>::default(),
         ));

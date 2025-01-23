@@ -13,7 +13,11 @@ pub use prepass_bindings::*;
 
 use bevy_asset::{load_internal_asset, AssetServer};
 use bevy_core_pipeline::{
-    core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prelude::Camera3d, prepass::*,
+    core_3d::CORE_3D_DEPTH_FORMAT,
+    deferred::*,
+    prelude::Camera3d,
+    prepass::*,
+    visbuffer::{AlphaMask3dVisbuffer, Opaque3dVisbuffer},
 };
 use bevy_ecs::{
     prelude::*,
@@ -35,6 +39,7 @@ use bevy_render::{
 };
 use bevy_transform::prelude::GlobalTransform;
 use tracing::error;
+use visbuffer::{DrawVisbuffer, VisbufferPrepassPipeline};
 
 #[cfg(feature = "meshlet")]
 use crate::meshlet::{
@@ -178,6 +183,8 @@ where
             .add_render_command::<AlphaMask3dPrepass, DrawPrepass<M>>()
             .add_render_command::<Opaque3dDeferred, DrawPrepass<M>>()
             .add_render_command::<AlphaMask3dDeferred, DrawPrepass<M>>()
+            .add_render_command::<Opaque3dVisbuffer, DrawVisbuffer<M>>()
+            .add_render_command::<AlphaMask3dVisbuffer, DrawVisbuffer<M>>()
             .add_systems(
                 Render,
                 queue_prepass_material_meshes::<M>
@@ -563,7 +570,6 @@ where
             key.mesh_key
                 .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS),
             key.mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS),
-            key.mesh_key.contains(MeshPipelineKey::VISBUFFER_PREPASS),
         );
 
         if targets.iter().all(Option::is_none) {
@@ -769,18 +775,24 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
 
 pub fn queue_prepass_material_meshes<M: Material>(
     (
+        opaque_visbuffer_draw_functions,
+        alpha_mask_visbuffer_draw_functions,
         opaque_draw_functions,
         alpha_mask_draw_functions,
         opaque_deferred_draw_functions,
         alpha_mask_deferred_draw_functions,
     ): (
+        Res<DrawFunctions<Opaque3dVisbuffer>>,
+        Res<DrawFunctions<AlphaMask3dVisbuffer>>,
         Res<DrawFunctions<Opaque3dPrepass>>,
         Res<DrawFunctions<AlphaMask3dPrepass>>,
         Res<DrawFunctions<Opaque3dDeferred>>,
         Res<DrawFunctions<AlphaMask3dDeferred>>,
     ),
     prepass_pipeline: Res<PrepassPipeline<M>>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
+    visbuffer_pipeline: Res<VisbufferPrepassPipeline<M>>,
+    mut prepass_pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
+    mut visbuffer_pipelines: ResMut<SpecializedMeshPipelines<VisbufferPrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     (render_meshes, render_mesh_instances): (
         Res<RenderAssets<RenderMesh>>,
@@ -795,10 +807,21 @@ pub fn queue_prepass_material_meshes<M: Material>(
         Res<MaterialBindGroupAllocator<M>>,
     ),
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
-    mut opaque_prepass_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dPrepass>>,
-    mut alpha_mask_prepass_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
-    mut opaque_deferred_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
-    mut alpha_mask_deferred_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
+    (
+        mut opaque_visbuffer_render_phases,
+        mut alpha_mask_visbuffer_render_phases,
+        mut opaque_prepass_render_phases,
+        mut alpha_mask_prepass_render_phases,
+        mut opaque_deferred_render_phases,
+        mut alpha_mask_deferred_render_phases,
+    ): (
+        ResMut<ViewBinnedRenderPhases<Opaque3dVisbuffer>>,
+        ResMut<ViewBinnedRenderPhases<AlphaMask3dVisbuffer>>,
+        ResMut<ViewBinnedRenderPhases<Opaque3dPrepass>>,
+        ResMut<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
+        ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
+        ResMut<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
+    ),
     views: Query<(
         &ExtractedView,
         &RenderVisibleEntities,
@@ -812,6 +835,14 @@ pub fn queue_prepass_material_meshes<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
+    let opaque_draw_visbuffer = opaque_visbuffer_draw_functions
+        .read()
+        .get_id::<DrawVisbuffer<M>>()
+        .unwrap();
+    let alpha_mask_draw_visbuffer = alpha_mask_visbuffer_draw_functions
+        .read()
+        .get_id::<DrawVisbuffer<M>>()
+        .unwrap();
     let opaque_draw_prepass = opaque_draw_functions
         .read()
         .get_id::<DrawPrepass<M>>()
@@ -840,11 +871,15 @@ pub fn queue_prepass_material_meshes<M: Material>(
     ) in &views
     {
         let (
+            mut opaque_visbuffer_phase,
+            mut alpha_mask_visbuffer_phase,
             mut opaque_phase,
             mut alpha_mask_phase,
             mut opaque_deferred_phase,
             mut alpha_mask_deferred_phase,
         ) = (
+            opaque_visbuffer_render_phases.get_mut(&extracted_view.retained_view_entity),
+            alpha_mask_visbuffer_render_phases.get_mut(&extracted_view.retained_view_entity),
             opaque_prepass_render_phases.get_mut(&extracted_view.retained_view_entity),
             alpha_mask_prepass_render_phases.get_mut(&extracted_view.retained_view_entity),
             opaque_deferred_render_phases.get_mut(&extracted_view.retained_view_entity),
@@ -852,7 +887,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
         );
 
         // Skip if there's no place to put the mesh.
-        if opaque_phase.is_none()
+        if opaque_visbuffer_phase.is_none()
+            && alpha_mask_visbuffer_phase.is_none()
+            && opaque_phase.is_none()
             && alpha_mask_phase.is_none()
             && opaque_deferred_phase.is_none()
             && alpha_mask_deferred_phase.is_none()
@@ -870,6 +907,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
         if motion_vector_prepass {
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
+        // todo: this seems unnecessary, but without it non-visbuffer materials break
         if visbuffer_prepass {
             view_key |= MeshPipelineKey::VISBUFFER_PREPASS;
         }
@@ -913,18 +951,27 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 continue;
             }
 
-            let forward = match material.properties.render_method {
-                OpaqueRendererMethod::Forward => true,
-                OpaqueRendererMethod::Deferred => false,
-                OpaqueRendererMethod::Visbuffer => unimplemented!("visbuffer"),
+            match material.properties.render_method {
+                OpaqueRendererMethod::Forward => (),
+                OpaqueRendererMethod::Deferred => {
+                    // todo: are these two checks ever reachable? view loop may always continue in these cases
+                    if !deferred_prepass {
+                        panic!("Material has deferred renderer method but camera does not have deferred prepass.");
+                    }
+                    mesh_key |= MeshPipelineKey::DEFERRED_PREPASS;
+                }
+                OpaqueRendererMethod::Visbuffer => {
+                    if !visbuffer_prepass {
+                        panic!("Material has visbuffer renderer method but camera does not have visbuffer prepass.");
+                    }
+                    mesh_key |= MeshPipelineKey::VISBUFFER_PREPASS;
+                }
                 OpaqueRendererMethod::Auto => unreachable!(),
             };
-
-            let deferred = deferred_prepass && !forward;
-
-            if deferred {
-                mesh_key |= MeshPipelineKey::DEFERRED_PREPASS;
-            }
+            let deferred = material.properties.render_method == OpaqueRendererMethod::Deferred
+                && deferred_prepass;
+            let visbuffer = material.properties.render_method == OpaqueRendererMethod::Visbuffer
+                && visbuffer_prepass;
 
             if let Some(lightmap) = render_lightmaps.render_lightmaps.get(visible_entity) {
                 // Even though we don't use the lightmap in the forward prepass, the
@@ -934,6 +981,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 // present.
                 mesh_key |= MeshPipelineKey::LIGHTMAPPED;
 
+                // todo: why is deferred here? what should visbuffer do?
                 if lightmap.bicubic_sampling && deferred {
                     mesh_key |= MeshPipelineKey::LIGHTMAP_BICUBIC_SAMPLING;
                 }
@@ -959,17 +1007,31 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
             }
 
-            let pipeline_id = pipelines.specialize(
-                &pipeline_cache,
-                &prepass_pipeline,
-                MaterialPipelineKey {
-                    mesh_key,
-                    bind_group_data: material_bind_group
-                        .get_extra_data(material.binding.slot)
-                        .clone(),
-                },
-                &mesh.layout,
-            );
+            let pipeline_id = match material.properties.render_method {
+                OpaqueRendererMethod::Visbuffer => visbuffer_pipelines.specialize(
+                    &pipeline_cache,
+                    &visbuffer_pipeline,
+                    MaterialPipelineKey {
+                        mesh_key,
+                        // todo: shouldn't need any material binding data for visbuffer
+                        bind_group_data: material_bind_group
+                            .get_extra_data(material.binding.slot)
+                            .clone(),
+                    },
+                    &mesh.layout,
+                ),
+                _ => prepass_pipelines.specialize(
+                    &pipeline_cache,
+                    &prepass_pipeline,
+                    MaterialPipelineKey {
+                        mesh_key,
+                        bind_group_data: material_bind_group
+                            .get_extra_data(material.binding.slot)
+                            .clone(),
+                    },
+                    &mesh.layout,
+                ),
+            };
             let pipeline_id = match pipeline_id {
                 Ok(id) => id,
                 Err(err) => {
@@ -978,98 +1040,61 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
             };
 
+            macro_rules! add_to_phase {
+                ($phase:expr, $draw_fn:expr) => {{
+                    let (vertex_slab, index_slab) =
+                        mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
+                    $phase.add(
+                        OpaqueNoLightmap3dBatchSetKey {
+                            draw_function: $draw_fn,
+                            pipeline: pipeline_id,
+                            material_bind_group_index: Some(material.binding.group.0),
+                            vertex_slab: vertex_slab.unwrap_or_default(),
+                            index_slab,
+                        },
+                        OpaqueNoLightmap3dBinKey {
+                            asset_id: mesh_instance.mesh_asset_id.into(),
+                        },
+                        (*render_entity, *visible_entity),
+                        BinnedRenderPhaseType::mesh(
+                            mesh_instance.should_batch(),
+                            &gpu_preprocessing_support,
+                        ),
+                    );
+                }};
+            }
+
             match mesh_key
                 .intersection(MeshPipelineKey::BLEND_RESERVED_BITS | MeshPipelineKey::MAY_DISCARD)
             {
                 MeshPipelineKey::BLEND_OPAQUE | MeshPipelineKey::BLEND_ALPHA_TO_COVERAGE => {
                     if deferred {
-                        let (vertex_slab, index_slab) =
-                            mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
-                        opaque_deferred_phase.as_mut().unwrap().add(
-                            OpaqueNoLightmap3dBatchSetKey {
-                                draw_function: opaque_draw_deferred,
-                                pipeline: pipeline_id,
-                                material_bind_group_index: Some(material.binding.group.0),
-                                vertex_slab: vertex_slab.unwrap_or_default(),
-                                index_slab,
-                            },
-                            OpaqueNoLightmap3dBinKey {
-                                asset_id: mesh_instance.mesh_asset_id.into(),
-                            },
-                            (*render_entity, *visible_entity),
-                            BinnedRenderPhaseType::mesh(
-                                mesh_instance.should_batch(),
-                                &gpu_preprocessing_support,
-                            ),
+                        add_to_phase!(
+                            opaque_deferred_phase.as_mut().unwrap(),
+                            opaque_draw_deferred
+                        );
+                    } else if visbuffer {
+                        add_to_phase!(
+                            opaque_visbuffer_phase.as_mut().unwrap(),
+                            opaque_draw_visbuffer
                         );
                     } else if let Some(opaque_phase) = opaque_phase.as_mut() {
-                        let (vertex_slab, index_slab) =
-                            mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
-                        opaque_phase.add(
-                            OpaqueNoLightmap3dBatchSetKey {
-                                draw_function: opaque_draw_prepass,
-                                pipeline: pipeline_id,
-                                material_bind_group_index: Some(material.binding.group.0),
-                                vertex_slab: vertex_slab.unwrap_or_default(),
-                                index_slab,
-                            },
-                            OpaqueNoLightmap3dBinKey {
-                                asset_id: mesh_instance.mesh_asset_id.into(),
-                            },
-                            (*render_entity, *visible_entity),
-                            BinnedRenderPhaseType::mesh(
-                                mesh_instance.should_batch(),
-                                &gpu_preprocessing_support,
-                            ),
-                        );
+                        add_to_phase!(opaque_phase, opaque_draw_prepass);
                     }
-                }
-                // Alpha mask
+                } // Alpha mask
                 MeshPipelineKey::MAY_DISCARD => {
                     if deferred {
-                        let (vertex_slab, index_slab) =
-                            mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
-                        let batch_set_key = OpaqueNoLightmap3dBatchSetKey {
-                            draw_function: alpha_mask_draw_deferred,
-                            pipeline: pipeline_id,
-                            material_bind_group_index: Some(material.binding.group.0),
-                            vertex_slab: vertex_slab.unwrap_or_default(),
-                            index_slab,
-                        };
-                        let bin_key = OpaqueNoLightmap3dBinKey {
-                            asset_id: mesh_instance.mesh_asset_id.into(),
-                        };
-                        alpha_mask_deferred_phase.as_mut().unwrap().add(
-                            batch_set_key,
-                            bin_key,
-                            (*render_entity, *visible_entity),
-                            BinnedRenderPhaseType::mesh(
-                                mesh_instance.should_batch(),
-                                &gpu_preprocessing_support,
-                            ),
+                        add_to_phase!(
+                            alpha_mask_deferred_phase.as_mut().unwrap(),
+                            alpha_mask_draw_deferred
+                        );
+                    } else if visbuffer {
+                        add_to_phase!(
+                            alpha_mask_visbuffer_phase.as_mut().unwrap(),
+                            alpha_mask_draw_visbuffer
                         );
                     } else if let Some(alpha_mask_phase) = alpha_mask_phase.as_mut() {
-                        let (vertex_slab, index_slab) =
-                            mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
-                        let batch_set_key = OpaqueNoLightmap3dBatchSetKey {
-                            draw_function: alpha_mask_draw_prepass,
-                            pipeline: pipeline_id,
-                            material_bind_group_index: Some(material.binding.group.0),
-                            vertex_slab: vertex_slab.unwrap_or_default(),
-                            index_slab,
-                        };
-                        let bin_key = OpaqueNoLightmap3dBinKey {
-                            asset_id: mesh_instance.mesh_asset_id.into(),
-                        };
-                        alpha_mask_phase.add(
-                            batch_set_key,
-                            bin_key,
-                            (*render_entity, *visible_entity),
-                            BinnedRenderPhaseType::mesh(
-                                mesh_instance.should_batch(),
-                                &gpu_preprocessing_support,
-                            ),
-                        );
+                        add_to_phase!(alpha_mask_phase, alpha_mask_draw_prepass);
                     }
                 }
                 _ => {}

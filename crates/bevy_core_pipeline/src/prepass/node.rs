@@ -83,10 +83,6 @@ impl ViewNode for PrepassNode {
             // Use None in place of deferred attachments
             None,
             None,
-            view_prepass_textures
-                .visbuffer
-                .as_ref()
-                .map(|visbuffer_texture| visbuffer_texture.get_attachment()),
         ];
 
         // If all color attachments are none: clear the color attachment list so that no fragment shader is required

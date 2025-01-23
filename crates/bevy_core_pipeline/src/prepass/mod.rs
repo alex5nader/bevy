@@ -114,6 +114,8 @@ pub struct ViewPrepassTextures {
     /// A texture that specifies the deferred lighting pass id for a material.
     /// Exists only if [`DeferredPrepass`] is added to the `ViewTarget`
     pub deferred_lighting_pass_id: Option<ColorAttachment>,
+    // todo: should this move to a separate component,
+    // since it isn't included with the other color attachments when running?
     pub visbuffer: Option<ColorAttachment>,
     /// The size of the textures.
     pub size: Extent3d,
@@ -354,7 +356,6 @@ pub fn prepass_target_descriptors(
     normal_prepass: bool,
     motion_vector_prepass: bool,
     deferred_prepass: bool,
-    visbuffer_prepass: bool,
 ) -> Vec<Option<ColorTargetState>> {
     vec![
         normal_prepass.then_some(ColorTargetState {
@@ -376,11 +377,6 @@ pub fn prepass_target_descriptors(
             format: DEFERRED_LIGHTING_PASS_ID_FORMAT,
             blend: None,
             write_mask: ColorWrites::ALL,
-        }),
-        visbuffer_prepass.then_some(ColorTargetState {
-            format: VISBUFFER_PREPASS_FORMAT,
-            blend: None,
-            write_mask: ColorWrites::RED,
         }),
     ]
 }

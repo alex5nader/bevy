@@ -46,6 +46,7 @@ mod prepass;
 mod render;
 mod ssao;
 mod ssr;
+mod visbuffer;
 mod volumetric_fog;
 
 use crate::material_bind_groups::FallbackBindlessResources;
@@ -67,6 +68,7 @@ pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
 pub use ssr::*;
+// pub use visbuffer::*;
 pub use volumetric_fog::{FogVolume, VolumetricFog, VolumetricFogPlugin, VolumetricLight};
 
 /// The PBR prelude.

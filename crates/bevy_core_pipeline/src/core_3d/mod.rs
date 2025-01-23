@@ -16,6 +16,7 @@ pub mod graph {
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
     pub enum Node3d {
         MsaaWriteback,
+        VisbufferPrepass,
         Prepass,
         DeferredPrepass,
         CopyDeferredLightingId,
@@ -121,6 +122,7 @@ use crate::{
     skybox::SkyboxPlugin,
     tonemapping::TonemappingNode,
     upscaling::UpscalingNode,
+    visbuffer::{node::VisbufferPrepassNode, AlphaMask3dVisbuffer, Opaque3dVisbuffer},
 };
 
 use self::graph::{Core3d, Node3d};
@@ -142,12 +144,16 @@ impl Plugin for Core3dPlugin {
             .init_resource::<DrawFunctions<AlphaMask3d>>()
             .init_resource::<DrawFunctions<Transmissive3d>>()
             .init_resource::<DrawFunctions<Transparent3d>>()
+            .init_resource::<DrawFunctions<Opaque3dVisbuffer>>()
+            .init_resource::<DrawFunctions<AlphaMask3dVisbuffer>>()
             .init_resource::<DrawFunctions<Opaque3dPrepass>>()
             .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
             .init_resource::<DrawFunctions<Opaque3dDeferred>>()
             .init_resource::<DrawFunctions<AlphaMask3dDeferred>>()
             .init_resource::<ViewBinnedRenderPhases<Opaque3d>>()
             .init_resource::<ViewBinnedRenderPhases<AlphaMask3d>>()
+            .init_resource::<ViewBinnedRenderPhases<Opaque3dVisbuffer>>()
+            .init_resource::<ViewBinnedRenderPhases<AlphaMask3dVisbuffer>>()
             .init_resource::<ViewBinnedRenderPhases<Opaque3dPrepass>>()
             .init_resource::<ViewBinnedRenderPhases<AlphaMask3dPrepass>>()
             .init_resource::<ViewBinnedRenderPhases<Opaque3dDeferred>>()
@@ -169,6 +175,10 @@ impl Plugin for Core3dPlugin {
 
         render_app
             .add_render_sub_graph(Core3d)
+            .add_render_graph_node::<ViewNodeRunner<VisbufferPrepassNode>>(
+                Core3d,
+                Node3d::VisbufferPrepass,
+            )
             .add_render_graph_node::<ViewNodeRunner<PrepassNode>>(Core3d, Node3d::Prepass)
             .add_render_graph_node::<ViewNodeRunner<DeferredGBufferPrepassNode>>(
                 Core3d,
@@ -200,6 +210,7 @@ impl Plugin for Core3dPlugin {
             .add_render_graph_edges(
                 Core3d,
                 (
+                    Node3d::VisbufferPrepass,
                     Node3d::Prepass,
                     Node3d::DeferredPrepass,
                     Node3d::CopyDeferredLightingId,
@@ -615,6 +626,8 @@ pub fn extract_core_3d_camera_phases(
 
 pub fn extract_camera_prepass_phase(
     mut commands: Commands,
+    mut opaque_3d_visbuffer_phases: ResMut<ViewBinnedRenderPhases<Opaque3dVisbuffer>>,
+    mut alpha_mask_3d_visbuffer_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dVisbuffer>>,
     mut opaque_3d_prepass_phases: ResMut<ViewBinnedRenderPhases<Opaque3dPrepass>>,
     mut alpha_mask_3d_prepass_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
     mut opaque_3d_deferred_phases: ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
@@ -667,7 +680,17 @@ pub fn extract_camera_prepass_phase(
         // This is the main 3D camera, so we use the first subview index (0).
         let retained_view_entity = RetainedViewEntity::new(main_entity.into(), 0);
 
-        if depth_prepass || normal_prepass || motion_vector_prepass || visbuffer_prepass {
+        if visbuffer_prepass {
+            opaque_3d_visbuffer_phases
+                .insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
+            alpha_mask_3d_visbuffer_phases
+                .insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
+        } else {
+            opaque_3d_visbuffer_phases.remove(&retained_view_entity);
+            alpha_mask_3d_visbuffer_phases.remove(&retained_view_entity);
+        }
+
+        if depth_prepass || normal_prepass || motion_vector_prepass {
             opaque_3d_prepass_phases.insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
             alpha_mask_3d_prepass_phases
                 .insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
@@ -696,6 +719,8 @@ pub fn extract_camera_prepass_phase(
             .insert_if(VisbufferPrepass, || visbuffer_prepass);
     }
 
+    opaque_3d_visbuffer_phases.retain(|view_entity, _| live_entities.contains(view_entity));
+    alpha_mask_3d_visbuffer_phases.retain(|view_entity, _| live_entities.contains(view_entity));
     opaque_3d_prepass_phases.retain(|view_entity, _| live_entities.contains(view_entity));
     alpha_mask_3d_prepass_phases.retain(|view_entity, _| live_entities.contains(view_entity));
     opaque_3d_deferred_phases.retain(|view_entity, _| live_entities.contains(view_entity));
@@ -897,6 +922,8 @@ pub fn prepare_prepass_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
+    opaque_3d_visbuffer_phases: Res<ViewBinnedRenderPhases<Opaque3dVisbuffer>>,
+    alpha_mask_3d_visbuffer_phases: Res<ViewBinnedRenderPhases<AlphaMask3dVisbuffer>>,
     opaque_3d_prepass_phases: Res<ViewBinnedRenderPhases<Opaque3dPrepass>>,
     alpha_mask_3d_prepass_phases: Res<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
     opaque_3d_deferred_phases: Res<ViewBinnedRenderPhases<Opaque3dDeferred>>,
@@ -931,7 +958,9 @@ pub fn prepare_prepass_textures(
         visbuffer_prepass,
     ) in &views_3d
     {
-        if !opaque_3d_prepass_phases.contains_key(&view.retained_view_entity)
+        if !opaque_3d_visbuffer_phases.contains_key(&view.retained_view_entity)
+            && !alpha_mask_3d_visbuffer_phases.contains_key(&view.retained_view_entity)
+            && !opaque_3d_prepass_phases.contains_key(&view.retained_view_entity)
             && !alpha_mask_3d_prepass_phases.contains_key(&view.retained_view_entity)
             && !opaque_3d_deferred_phases.contains_key(&view.retained_view_entity)
             && !alpha_mask_3d_deferred_phases.contains_key(&view.retained_view_entity)

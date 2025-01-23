@@ -8,7 +8,6 @@
     mesh_view_bindings::view,
     utils::{octahedral_encode, octahedral_decode},
     prepass_io::FragmentOutput,
-    prepass_utils::encode_visbuffer,
     view_transformations::{position_ndc_to_world, frag_coord_to_ndc},
 }
 
@@ -126,13 +125,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
 }
 
 #ifdef PREPASS_PIPELINE
-fn deferred_output(
-    in: VertexOutput,
-#ifdef VISBUFFER_PREPASS
-    triangle_index: u32,
-#endif
-    pbr_input: PbrInput,
-) -> FragmentOutput {
+fn deferred_output(in: VertexOutput, pbr_input: PbrInput) -> FragmentOutput {
     var out: FragmentOutput;
 
     // gbuffer
@@ -150,10 +143,6 @@ fn deferred_output(
 #else
     out.motion_vector = calculate_motion_vector(in.world_position, in.previous_world_position);
 #endif
-#endif
-
-#ifdef VISBUFFER_PREPASS
-    out.visbuffer = encode_visbuffer(in.instance_index, triangle_index);
 #endif
 
     return out;

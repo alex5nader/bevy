@@ -46,6 +46,7 @@ use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
 use bevy_utils::hashbrown::hash_map::Entry;
 use core::{hash::Hash, marker::PhantomData};
 use tracing::error;
+use visbuffer::VisbufferPrepassPipelinePlugin;
 
 /// Materials are used alongside [`MaterialPlugin`], [`Mesh3d`], and [`MeshMaterial3d`]
 /// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level
@@ -248,6 +249,7 @@ pub struct MaterialPlugin<M: Material> {
     /// When it is enabled, it will automatically add the [`PrepassPlugin`]
     /// required to make the prepass work on this Material.
     pub prepass_enabled: bool,
+    pub visbuffer_enabled: bool,
     /// Controls if shadows are enabled for the Material.
     pub shadows_enabled: bool,
     pub _marker: PhantomData<M>,
@@ -257,6 +259,7 @@ impl<M: Material> Default for MaterialPlugin<M> {
     fn default() -> Self {
         Self {
             prepass_enabled: true,
+            visbuffer_enabled: true,
             shadows_enabled: true,
             _marker: Default::default(),
         }
@@ -327,6 +330,10 @@ where
         if self.shadows_enabled || self.prepass_enabled {
             // PrepassPipelinePlugin is required for shadow mapping and the optional PrepassPlugin
             app.add_plugins(PrepassPipelinePlugin::<M>::default());
+        }
+
+        if self.visbuffer_enabled {
+            app.add_plugins(VisbufferPrepassPipelinePlugin::<M>::default());
         }
 
         if self.prepass_enabled {

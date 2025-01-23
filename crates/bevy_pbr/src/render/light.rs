@@ -1556,6 +1556,7 @@ fn despawn_entities(commands: &mut Commands, entities: Vec<Entity>) {
 /// appropriate.
 pub fn queue_shadows<M: Material>(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
+    // todo: why is this here? does visbuffer need an equivalent?
     prepass_pipeline: Res<PrepassPipeline<M>>,
     (render_meshes, render_mesh_instances, render_materials, render_material_instances): (
         Res<RenderAssets<RenderMesh>>,

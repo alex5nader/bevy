@@ -4,7 +4,7 @@
 
 use bevy::{
     core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass, VisbufferPrepass},
-    pbr::{NotShadowCaster, PbrPlugin},
+    pbr::{DefaultOpaqueRendererMethod, NotShadowCaster, OpaqueRendererMethod, PbrPlugin},
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
@@ -165,6 +165,10 @@ impl Material for CustomMaterial {
         self.alpha_mode
     }
 
+    fn opaque_render_method(&self) -> OpaqueRendererMethod {
+        OpaqueRendererMethod::Auto
+    }
+
     // You can override the default shaders used in the prepass if your material does
     // anything not supported by the default prepass
     // fn prepass_fragment_shader() -> ShaderRef {
@@ -218,6 +222,9 @@ fn toggle_prepass_view(
     mut materials: ResMut<Assets<PrepassOutputMaterial>>,
     text: Single<Entity, With<Text>>,
     mut writer: TextUiWriter,
+    mut default_opaque_renderer_method: ResMut<DefaultOpaqueRendererMethod>,
+    mut standard_materials: ResMut<Assets<StandardMaterial>>,
+    mut custom_materials: ResMut<Assets<CustomMaterial>>,
 ) {
     if keycode.just_pressed(KeyCode::Space) {
         *prepass_view = (*prepass_view + 1) % 5;
@@ -241,5 +248,15 @@ fn toggle_prepass_view(
         mat.settings.show_normals = (*prepass_view == 2) as u32;
         mat.settings.show_motion_vectors = (*prepass_view == 3) as u32;
         mat.settings.show_visbuffer = (*prepass_view == 4) as u32;
+
+        if mat.settings.show_visbuffer != 0 {
+            default_opaque_renderer_method.set_to_visbuffer();
+        } else {
+            default_opaque_renderer_method.set_to_forward();
+        }
+        // Mutably accessing a material causes it to be re-sent to the GPU.
+        // This causes the opaque renderer method to update.
+        for _ in standard_materials.iter_mut() {}
+        for _ in custom_materials.iter_mut() {}
     }
 }

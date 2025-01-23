@@ -3,7 +3,6 @@
     mesh_bindings::mesh,
     mesh_functions,
     prepass_io::{Vertex, VertexOutput, FragmentOutput},
-    prepass_utils::encode_visbuffer,
     skinning,
     morph,
     mesh_view_bindings::view,
@@ -179,12 +178,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 
 #ifdef PREPASS_FRAGMENT
 @fragment
-fn fragment(
-    in: VertexOutput,
-    #ifdef VISBUFFER_PREPASS
-    @builtin(primitive_index) triangle_index: u32,
-    #endif
-) -> FragmentOutput {
+fn fragment(in: VertexOutput) -> FragmentOutput {
     var out: FragmentOutput;
 
 #ifdef NORMAL_PREPASS
@@ -216,10 +210,6 @@ fn fragment(
     // as an example to show that a user could write to the deferred gbuffer if they were to start from this shader.
     out.deferred = vec4(0u, bevy_pbr::rgb9e5::vec3_to_rgb9e5_(vec3(1.0, 0.0, 1.0)), 0u, 0u);
     out.deferred_lighting_pass_id = 1u;
-#endif
-
-#ifdef VISBUFFER_PREPASS
-    out.visbuffer = encode_visbuffer(in.instance_index, triangle_index);
 #endif
 
     return out;

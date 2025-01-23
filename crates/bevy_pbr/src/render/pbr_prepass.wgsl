@@ -6,7 +6,6 @@
     pbr_functions,
     pbr_functions::SampleBias,
     prepass_io,
-    prepass_utils::encode_visbuffer,
     mesh_bindings::mesh,
     mesh_view_bindings::view,
 }
@@ -23,9 +22,6 @@ fn fragment(
 #else
     in: prepass_io::VertexOutput,
     @builtin(front_facing) is_front: bool,
-#endif
-#ifdef VISBUFFER_PREPASS
-    @builtin(primitive_index) triangle_index: u32,
 #endif
 ) -> prepass_io::FragmentOutput {
 #ifdef MESHLET_MESH_MATERIAL_PASS
@@ -137,10 +133,6 @@ fn fragment(
 #else
     out.motion_vector = pbr_prepass_functions::calculate_motion_vector(in.world_position, in.previous_world_position);
 #endif
-#endif
-
-#ifdef VISBUFFER_PREPASS
-    out.visbuffer = encode_visbuffer(in.instance_index, triangle_index);
 #endif
 
     return out;
